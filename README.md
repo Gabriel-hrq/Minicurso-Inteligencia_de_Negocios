@@ -111,12 +111,15 @@ Abra a pasta clonada no VS Code (`File → Open Folder...`) e abra um terminal i
 # Validar a instalação do Python
 python --version
 
+# Atualizar gerenciador de pacotes
+python -m pip install --upgrade pip
+
 # Criar o ambiente virtual
 python -m venv venv
 
 # Ativar o ambiente virtual
 # Windows (PowerShell):
-.venv\Scripts\Activate.ps1
+venv\Scripts\Activate.ps1
 # Linux / macOS:
 source venv/bin/activate
 ```
