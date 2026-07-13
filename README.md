@@ -153,7 +153,7 @@ O comando `dbt init` vai pedir as credenciais interativamente (host, port, datab
 >   outputs:
 >     dev:
 >       type: postgres
->       host: <host-do-supabase>
+>       host: aws-1-sa-east-1.pooler.supabase.com
 >       port: 5432
 >       user: <user-do-supabase>
 >       password: <senha>
