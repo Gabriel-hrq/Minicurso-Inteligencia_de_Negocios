@@ -1,0 +1,416 @@
+version: 2
+
+models:
+  # ---------------------------------------------------------------------
+  # DIMENSÕES
+  # ---------------------------------------------------------------------
+
+  - name: dim_cultura
+    description: Dimensão de culturas agrícolas, com unidade e fator de conversão de produtividade.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: id_cultura
+        data_type: integer
+        description: Identificador da cultura (chave natural, reaproveitada como SK).
+        constraints:
+          - type: primary_key
+        tests:
+          - unique
+          - not_null
+      - name: nome
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: ciclo_medio_dias
+        data_type: integer
+      - name: unidade_produtividade
+        data_type: text
+        description: Unidade de medida de produtividade (sc/ha, @/ha, bu/ha, kg/ha).
+        constraints:
+          - type: not_null
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['sc/ha', '@/ha', 'bu/ha', 'kg/ha']
+      - name: fator_conversao_kg
+        data_type: integer
+        description: Fator de conversão de kg para a unidade padrão da cultura.
+        constraints:
+          - type: not_null
+        tests:
+          - not_null
+
+  - name: dim_fazenda
+    description: Dimensão de fazendas.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: id_fazenda
+        data_type: integer
+        constraints:
+          - type: primary_key
+        tests:
+          - unique
+          - not_null
+      - name: nome
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: endereco
+        data_type: varchar
+      - name: cidade
+        data_type: varchar
+      - name: estado
+        data_type: varchar
+      - name: area_total_ha
+        data_type: numeric
+        constraints:
+          - type: not_null
+
+  - name: dim_safra
+    description: Dimensão de safras (períodos de produção).
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: id_safra
+        data_type: integer
+        constraints:
+          - type: primary_key
+        tests:
+          - unique
+          - not_null
+      - name: nome
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: data_inicio
+        data_type: date
+      - name: data_fim
+        data_type: date
+
+  - name: dim_variedade
+    description: Dimensão de variedades (cultivares) de cada cultura.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: id_variedade
+        data_type: integer
+        constraints:
+          - type: primary_key
+        tests:
+          - unique
+          - not_null
+      - name: id_cultura
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_cultura')
+            to_columns: [id_cultura]
+        tests:
+          - not_null
+      - name: nome
+        data_type: varchar
+      - name: ciclo_dias
+        data_type: integer
+        constraints:
+          - type: not_null
+        tests:
+          - not_null
+      - name: potencial_produtivo_kg_ha
+        data_type: integer
+
+  - name: dim_talhao
+    description: Dimensão de talhões, desnormalizada com atributos da fazenda.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: id_talhao
+        data_type: integer
+        constraints:
+          - type: primary_key
+        tests:
+          - unique
+          - not_null
+      - name: id_fazenda
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_fazenda')
+            to_columns: [id_fazenda]
+        tests:
+          - not_null
+      - name: fazenda
+        data_type: text
+        description: Nome da fazenda extraído do campo codigo de origem.
+      - name: nome_talhao
+        data_type: text
+        description: Identificador do talhão extraído do campo codigo de origem.
+      - name: area_ha
+        data_type: numeric
+      - name: irrigado
+        data_type: boolean
+      - name: tipo_irrigacao
+        data_type: varchar
+      - name: endereco
+        data_type: varchar
+      - name: cidade
+        data_type: varchar
+      - name: estado
+        data_type: varchar
+      - name: area_total_fazenda_ha
+        data_type: numeric
+
+  - name: dim_plantio
+    description: Dimensão de eventos de plantio — grão 1 linha/plantio, carrega datas, áreas e status.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: id_plantio
+        data_type: integer
+        constraints:
+          - type: primary_key
+        tests:
+          - unique
+          - not_null
+      - name: id_talhao
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_talhao')
+            to_columns: [id_talhao]
+        tests:
+          - not_null
+      - name: id_variedade
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_variedade')
+            to_columns: [id_variedade]
+        tests:
+          - not_null
+      - name: id_cultura
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_cultura')
+            to_columns: [id_cultura]
+        tests:
+          - not_null
+      - name: id_safra
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_safra')
+            to_columns: [id_safra]
+        tests:
+          - not_null
+      - name: data_inicio_prevista
+        data_type: date
+      - name: data_fim_prevista
+        data_type: date
+      - name: data_inicio_real
+        data_type: date
+      - name: data_fim_real
+        data_type: date
+      - name: area_planejada_ha
+        data_type: numeric
+      - name: area_real_ha
+        data_type: numeric
+      - name: data_fim_colheita_real
+        data_type: date
+      - name: data_fim_colheita_planejada
+        data_type: date
+      - name: status_cronograma
+        data_type: text
+        constraints:
+          - type: not_null
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['colhido', 'em_andamento']
+
+  - name: dim_colheita
+    description: Dimensão de eventos de colheita — grão 1 linha/colheita, carrega quantidade, área e produtividade já convertida.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: id_colheita
+        data_type: integer
+        constraints:
+          - type: primary_key
+        tests:
+          - unique
+          - not_null
+      - name: id_talhao
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_talhao')
+            to_columns: [id_talhao]
+        tests:
+          - not_null
+      - name: id_variedade
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_variedade')
+            to_columns: [id_variedade]
+        tests:
+          - not_null
+      - name: id_cultura
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_cultura')
+            to_columns: [id_cultura]
+        tests:
+          - not_null
+      - name: id_safra
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_safra')
+            to_columns: [id_safra]
+        tests:
+          - not_null
+      - name: data_inicio_colheita
+        data_type: date
+      - name: data_fim_colheita
+        data_type: date
+      - name: unidade_produtividade
+        data_type: text
+        tests:
+          - accepted_values:
+              values: ['sc/ha', '@/ha', 'bu/ha', 'kg/ha']
+      - name: quantidade_colhida_kg
+        data_type: numeric
+      - name: quantidade_colhida_unidade_padrao
+        data_type: numeric
+      - name: area_colhida_ha
+        data_type: numeric
+      - name: area_plantada_ha
+        data_type: numeric
+      - name: produtividade_kg_ha
+        data_type: numeric
+      - name: produtividade_unidade_padrao_ha
+        data_type: numeric
+      - name: pct_area_colhida
+        data_type: numeric
+
+  # ---------------------------------------------------------------------
+  # FATOS (factless)
+  # ---------------------------------------------------------------------
+
+  - name: fact_cronograma
+    description: >
+      Fato factless — grão 1 linha/plantio. Liga plantio a talhão, variedade,
+      cultura e safra. As métricas de cronograma ficam em dim_plantio;
+      esta tabela existe para consultas de contagem/cobertura por dimensão.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: id_plantio
+        data_type: integer
+        description: Grão da fato — 1 linha por plantio.
+        constraints:
+          - type: primary_key
+          - type: foreign_key
+            to: ref('dim_plantio')
+            to_columns: [id_plantio]
+        tests:
+          - unique
+          - not_null
+      - name: id_talhao
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_talhao')
+            to_columns: [id_talhao]
+        tests:
+          - not_null
+      - name: id_variedade
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_variedade')
+            to_columns: [id_variedade]
+        tests:
+          - not_null
+      - name: id_cultura
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_cultura')
+            to_columns: [id_cultura]
+        tests:
+          - not_null
+      - name: id_safra
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_safra')
+            to_columns: [id_safra]
+        tests:
+          - not_null
+
+  - name: fact_produtividade
+    description: >
+      Fato factless — grão 1 linha/colheita. Liga colheita a talhão, variedade,
+      cultura e safra. As métricas de produtividade ficam em dim_colheita;
+      esta tabela existe para consultas de contagem/cobertura por dimensão.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: id_colheita
+        data_type: integer
+        description: Grão da fato — 1 linha por colheita.
+        constraints:
+          - type: primary_key
+          - type: foreign_key
+            to: ref('dim_colheita')
+            to_columns: [id_colheita]
+        tests:
+          - unique
+          - not_null
+      - name: id_talhao
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_talhao')
+            to_columns: [id_talhao]
+        tests:
+          - not_null
+      - name: id_variedade
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_variedade')
+            to_columns: [id_variedade]
+        tests:
+          - not_null
+      - name: id_cultura
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_cultura')
+            to_columns: [id_cultura]
+        tests:
+          - not_null
+      - name: id_safra
+        data_type: integer
+        constraints:
+          - type: foreign_key
+            to: ref('dim_safra')
+            to_columns: [id_safra]
+        tests:
+          - not_null

@@ -1,0 +1,111 @@
+version: 2
+
+models:
+  - name: int_talhao
+    description: >
+      Talhão com o campo `codigo` de origem quebrado em `fazenda` e `talhao`
+      (via split_part), pronto para alimentar dim_talhao.
+    columns:
+      - name: id_talhao
+        description: Identificador do talhão (chave natural, reaproveitada como SK).
+        tests:
+          - unique
+          - not_null
+      - name: id_fazenda
+        description: FK para a fazenda de origem.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_fazenda')
+              field: id_fazenda
+      - name: fazenda
+        description: Nome da fazenda extraído do campo codigo (texto antes de " - ").
+      - name: talhao
+        description: Identificador do talhão extraído do campo codigo (texto depois de " - ").
+
+  - name: int_plantio
+    description: >
+      Plantio com id_cultura resolvido via variedade, status de cronograma
+      derivado pela existência de colheita associada, e datas de colheita
+      real/planejada calculadas.
+    columns:
+      - name: id_plantio
+        tests:
+          - unique
+          - not_null
+      - name: id_talhao
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_talhao')
+              field: id_talhao
+      - name: id_variedade
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_variedade')
+              field: id_variedade
+      - name: id_cultura
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_cultura')
+              field: id_cultura
+      - name: id_safra
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_safra')
+              field: id_safra
+      - name: status_cronograma
+        description: "'colhido' se existe colheita associada ao plantio, senão 'em_andamento'."
+        tests:
+          - accepted_values:
+              values: ['colhido', 'em_andamento']
+
+  - name: int_colheita
+    description: >
+      Colheita com FKs resolvidas via plantio/variedade, quantidade convertida
+      para a unidade padrão da cultura, e métricas de produtividade calculadas.
+    columns:
+      - name: id_colheita
+        tests:
+          - unique
+          - not_null
+      - name: id_talhao
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_talhao')
+              field: id_talhao
+      - name: id_variedade
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_variedade')
+              field: id_variedade
+      - name: id_cultura
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_cultura')
+              field: id_cultura
+      - name: id_safra
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_safra')
+              field: id_safra
+      - name: unidade_produtividade
+        description: Unidade de medida de produtividade da cultura (sc/ha, @/ha, bu/ha, kg/ha).
+        tests:
+          - accepted_values:
+              values: ['sc/ha', '@/ha', 'bu/ha', 'kg/ha']
+      - name: quantidade_colhida_unidade_padrao
+        description: Quantidade colhida convertida da unidade padrão da cultura (kg dividido pelo fator de conversão).
+      - name: produtividade_kg_ha
+        description: Produtividade bruta em kg/ha (quantidade_colhida_kg / area_colhida_ha).
+      - name: produtividade_unidade_padrao_ha
+        description: Produtividade convertida para a unidade padrão da cultura, por hectare.
+      - name: pct_area_colhida
+        description: Percentual da área plantada que já foi colhida (area_colhida_ha / area_plantada_ha).

@@ -1,0 +1,118 @@
+version: 2
+
+sources:
+  - name: sistema_gerencial
+    description: >
+      Dados brutos do sistema gerencial de plantio e colheita das fazendas.
+      Origem: banco PostgreSQL hospedado no Supabase, schema `public`.
+    database: postgres
+    schema: public
+
+    tables:
+      - name: cultura
+        description: Catálogo de culturas agrícolas (Soja, Milho, Algodão, etc.).
+        columns:
+          - name: id_cultura
+            description: Identificador único da cultura.
+            tests:
+              - unique
+              - not_null
+          - name: nome
+            tests:
+              - not_null
+
+      - name: variedade
+        description: >
+          Variedades (cultivares) de cada cultura, com ciclo em dias e
+          potencial produtivo teórico em kg/ha.
+        columns:
+          - name: id_variedade
+            description: Identificador único da variedade (nº RNC quando aplicável).
+            tests:
+              - unique
+              - not_null
+          - name: id_cultura
+            tests:
+              - not_null
+              - relationships:
+                  to: source('sistema_gerencial', 'cultura')
+                  field: id_cultura
+
+      - name: fazenda
+        description: Cadastro das fazendas.
+        columns:
+          - name: id_fazenda
+            tests:
+              - unique
+              - not_null
+
+      - name: talhao
+        description: >
+          Subdivisões físicas de uma fazenda onde plantios ocorrem.
+          Pode ser sequeiro ou irrigado (campo irrigado).
+        columns:
+          - name: id_talhao
+            tests:
+              - unique
+              - not_null
+          - name: id_fazenda
+            tests:
+              - not_null
+              - relationships:
+                  to: source('sistema_gerencial', 'fazenda')
+                  field: id_fazenda
+
+      - name: safra
+        description: Período de produção agrícola (ex. '2025/2026').
+        columns:
+          - name: id_safra
+            tests:
+              - unique
+              - not_null
+
+      - name: plantio
+        description: >
+          Registro de uma operação de plantio: datas previstas x reais,
+          área planejada x real, e a flag `finalizado` da fonte (não
+          utilizada nas transformações — ver stg_plantio/int_plantio).
+        columns:
+          - name: id_plantio
+            tests:
+              - unique
+              - not_null
+          - name: id_talhao
+            tests:
+              - not_null
+              - relationships:
+                  to: source('sistema_gerencial', 'talhao')
+                  field: id_talhao
+          - name: id_variedade
+            tests:
+              - not_null
+              - relationships:
+                  to: source('sistema_gerencial', 'variedade')
+                  field: id_variedade
+          - name: id_safra
+            tests:
+              - not_null
+              - relationships:
+                  to: source('sistema_gerencial', 'safra')
+                  field: id_safra
+
+      - name: colheita
+        description: >
+          Registro de uma operação de colheita, vinculada a um plantio.
+          Não possui id_safra própria: a safra é herdada via plantio,
+          já que uma colheita nunca ultrapassa os limites da safra do
+          plantio de origem.
+        columns:
+          - name: id_colheita
+            tests:
+              - unique
+              - not_null
+          - name: id_plantio
+            tests:
+              - not_null
+              - relationships:
+                  to: source('sistema_gerencial', 'plantio')
+                  field: id_plantio
