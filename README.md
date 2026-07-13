@@ -2,19 +2,19 @@
 
 Repositório do minicurso de **dbt (Data Build Tool)** ministrado na disciplina de **Inteligência de Negócios (FAGEN32602)**, da Faculdade de Gestão e Negócios (FAGEN) — Universidade Federal de Uberlândia (UFU).
 
-Contém exemplos práticos de construção de pipelines analíticos modernos, utilizando SQL, boas práticas de engenharia de dados, testes automatizados, versionamento e documentação de modelos.
+Este repositório **é o próprio hands-on**: siga o passo a passo abaixo, na ordem, para instalar as ferramentas, conectar ao banco e rodar o pipeline dbt do zero até os modelos finais (marts).
 
 ---
 
 ## 📌 Sobre o minicurso
 
-O DBT é hoje um dos padrões de fato da engenharia analítica moderna, responsável pela camada de **transformação (T)** em arquiteturas ELT, o framework aplica práticas de engenharia de software — versionamento, testes, modularização e documentação — diretamente sobre transformações SQL.
+O dbt é hoje um dos padrões de fato da engenharia analítica moderna, responsável pela camada de **transformação (T)** em arquiteturas ELT. O framework aplica práticas de engenharia de software — versionamento, testes, modularização e documentação — diretamente sobre transformações SQL.
 
 Este minicurso cobre:
 
 - Contexto: o que é o dbt, onde se encaixa no ecossistema de BI e casos de uso reais.
-- Hands-on guiado: construção de um pipeline de transformação do zero, sobre um dataset real.
-- Laboratório prático: réplica guiada do pipeline pela turma.
+- Hands-on guiado: execução de um pipeline de transformação real, sobre um dataset de gestão agrícola (fazendas, talhões, safras, plantio e colheita).
+- Laboratório prático: réplica guiada do pipeline pela turma, seguindo este mesmo README.
 - Análise crítica: comparação honesta com a ferramenta central da disciplina (Pentaho Data Integration).
 
 ---
@@ -22,23 +22,20 @@ Este minicurso cobre:
 ## 🏗️ Arquitetura do projeto
 
 ```
-Fonte de dados (raw)
+Fonte de dados (sistema gerencial de plantio e colheita)
         │
         ▼
   PostgreSQL (Supabase) ── banco gerenciado na nuvem, usado como Data Warehouse
         │
         ▼
    dbt (staging → intermediate → marts) ── camada de transformação (foco do minicurso)
-        │
-        ▼
-  Streamlit ── camada de consumo / visualização simples
 ```
 
 **Por que Postgres via Supabase, e não MySQL:**
-O dbt possui adapter **nativo** para PostgreSQL, mantido diretamente pela dbt Labs — mais estável e mais documentado que alternativas de comunidade. Usar um Postgres gerenciado na nuvem (Supabase) elimina a necessidade de qualquer instalação local de banco de dados por parte da turma: cada aluno só precisa de uma string de conexão para acompanhar o laboratório.
+O dbt possui adapter **nativo** para PostgreSQL, mantido diretamente pela dbt Labs — mais estável e mais documentado que alternativas de comunidade. Usar um Postgres gerenciado na nuvem (Supabase) elimina a necessidade de qualquer instalação local de banco de dados: cada aluno só precisa de uma string de conexão para acompanhar o laboratório.
 
-**Por que Streamlit é só a camada final:**
-O foco do minicurso é a ferramenta de **transformação**. O Streamlit aparece apenas como consumo rápido dos modelos já prontos, sem lógica de negócio — toda a regra de transformação vive nos modelos dbt.
+**Sobre o dado final:**
+O foco do minicurso é a ferramenta de **transformação**. Não há camada de visualização (Streamlit/BI) neste repositório — o pipeline termina nos modelos de `marts` (dimensões e fatos), prontos para serem consumidos por qualquer ferramenta de BI.
 
 ---
 
@@ -48,7 +45,7 @@ O foco do minicurso é a ferramenta de **transformação**. O Streamlit aparece 
 | --- | --- |
 | Armazenamento (DW) | PostgreSQL (Supabase) |
 | Transformação | dbt (dbt-core + dbt-postgres) |
-| Visualização | Streamlit |
+| Editor | Visual Studio Code |
 | Versionamento | Git / GitHub |
 
 ---
@@ -57,104 +54,163 @@ O foco do minicurso é a ferramenta de **transformação**. O Streamlit aparece 
 
 ```
 .
-├── dbt_project/
+├── minicurso_dbt/
 │   ├── models/
-│   │   ├── staging/        # modelos de limpeza e padronização das fontes
-│   │   ├── intermediate/   # modelos de transformação intermediária
-│   │   └── marts/          # modelos finais, prontos para consumo
-│   ├── tests/               # testes customizados
-│   ├── dbt_project.yml
-│   └── profiles.yml.example # exemplo de configuração de conexão (sem credenciais)
-├── streamlit_app/
-│   └── app.py                # visualização simples sobre os marts finais
-├── lab/
-│   └── roteiro.pdf            # roteiro do laboratório entregue à turma
-├── docs/
-│   └── slides.pdf              # slides da apresentação
+│   │   ├── _sources.yml     # declaração e testes das tabelas de origem
+│   │   ├── staging/         # limpeza e padronização 1:1 com as fontes
+│   │   ├── intermediate/    # joins e regras de negócio (conversões, status de cronograma)
+│   │   └── marts/           # modelos finais: dimensões e fatos
+│   ├── macros/               # macros customizados (conversão de unidade por cultura)
+│   ├── seeds/ | snapshots/ | tests/ | analyses/
+│   └── dbt_project.yml
 └── README.md
 ```
 
-> A estrutura acima é o ponto de partida planejado; será ajustada conforme o desenvolvimento do projeto avançar.
-
 ---
 
-## ⚙️ Configuração do ambiente
+## ✅ Passo a passo — do zero ao pipeline rodando
 
-### Pré-requisitos
+### 1. Pré-requisitos
 
-- Python 3.10+
-- `pip`
-- Conta no [Supabase](https://supabase.com) (gratuita) — para o laboratório, a string de conexão será fornecida pela dupla no início da aula.
+Baixe e instale, nesta ordem:
 
-### Instalação
+1. **Git** — necessário para clonar este repositório e versionar seu trabalho.
+   → https://git-scm.com/install/
+2. **Python** (versão 3.13 ou mais recente)
+   → https://www.python.org/downloads/
+3. **Visual Studio Code**
+   → https://code.visualstudio.com/download
+
+### 2. Criar conta no Supabase (banco de dados na nuvem)
+
+O dataset do minicurso já está hospedado em um projeto PostgreSQL no Supabase. Para se conectar a ele:
+
+1. Crie uma conta gratuita em https://supabase.com/
+2. Acesse o projeto do minicurso, fornecido pela dupla em aula (link de exemplo do projeto de referência: `https://supabase.com/dashboard/project/vtzvhajzfqdgdsxyvbjr/database/schemas`)
+3. Em **Project Settings → Database**, anote as credenciais de conexão:
+   - `host`
+   - `port` (padrão `5432`)
+   - `database`
+   - `user`
+   - `password`
+
+> ⚠️ Essas credenciais serão fornecidas verbalmente/pelo grupo da turma no início da aula — nunca commitar credenciais reais em nenhum arquivo do repositório.
+
+### 3. Clonar o repositório
 
 ```bash
-# Clonar o repositório
-git clone https://github.com/<usuario>/Minicurso---Inteligencia-de-Negocios.git
-cd Minicurso---Inteligencia-de-Negocios
+git clone https://github.com/Gabriel-hrq/DBT-Inteligencia_de_Negocios.git
+cd DBT-Inteligencia_de_Negocios
+```
 
-# Criar ambiente virtual
+Abra a pasta clonada no VS Code (`File → Open Folder...`) e abra um terminal integrado (`Terminal → New Terminal`).
+
+### 4. Criar o ambiente virtual Python
+
+```bash
+# Validar a instalação do Python
+python --version
+
+# Criar o ambiente virtual
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
 
-# Instalar dependências
-pip install dbt-core dbt-postgres streamlit
+# Ativar o ambiente virtual
+# Windows (PowerShell):
+.venv\Scripts\Activate.ps1
+# Linux / macOS:
+source venv/bin/activate
 ```
 
-### Configuração da conexão (dbt)
+Se `python --version` der erro, revise a instalação do Python feita no passo 1 (em especial, marcar a opção "Add Python to PATH" no instalador do Windows).
 
-Copie o arquivo de exemplo e preencha com as credenciais do Supabase fornecidas em aula:
+### 5. Instalar o dbt
 
 ```bash
-cp dbt_project/profiles.yml.example ~/.dbt/profiles.yml
+pip install dbt-postgres
 ```
 
-```yaml
-minicurso_dbt:
-  target: dev
-  outputs:
-    dev:
-      type: postgres
-      host: db.vtzvhajzfqdgdsxyvbjr.supabase.co
-      user: postgres
-      password: <senha>
-      port: 5432
-      dbname: <nome-do-banco>
-      schema: public
-      threads: 4
-```
-
-> ⚠️ Nunca commitar credenciais reais. `profiles.yml` fica fora do repositório (veja `.gitignore`).
-
----
-
-## 🚀 Como executar
+Valide a instalação:
 
 ```bash
-# Testar a conexão com o banco
+dbt --version
+```
+
+### 6. Conectar o dbt ao banco (Supabase)
+
+Este repositório já contém o projeto dbt pronto em `minicurso_dbt/`. Para conectá-lo ao seu banco, crie o arquivo de perfil do dbt (`profiles.yml`) com as credenciais obtidas no passo 2:
+
+```bash
+cd minicurso_dbt
+dbt init
+```
+
+O comando `dbt init` vai pedir as credenciais interativamente (host, port, database, user, password, schema). Informe os dados do Supabase.
+
+> Alternativa manual: crie/edite `~/.dbt/profiles.yml` diretamente:
+> ```yaml
+> minicurso_dbt:
+>   target: dev
+>   outputs:
+>     dev:
+>       type: postgres
+>       host: <host-do-supabase>
+>       port: 5432
+>       user: <user-do-supabase>
+>       password: <senha>
+>       dbname: <database>
+>       schema: public
+>       threads: 4
+> ```
+
+### 7. Validar a conexão
+
+```bash
 dbt debug
+```
 
-# Rodar todos os modelos
+Saída esperada:
+
+```
+20:46:59  All checks passed!
+```
+
+Se der erro, confira: credenciais do passo 2, se o projeto Supabase está ativo, e se `port` está correto (`5432`).
+
+### 8. Rodar o pipeline
+
+```bash
+# Rodar todos os modelos (staging → intermediate → marts)
 dbt run
 
-# Rodar os testes
+# Rodar os testes de qualidade (unique, not_null, relationships, accepted_values)
 dbt test
 
-# Gerar e visualizar a documentação
+# Gerar e navegar pela documentação/linhagem (lineage) do projeto
 dbt docs generate
 dbt docs serve
 ```
 
-```bash
-# Rodar a visualização
-streamlit run streamlit_app/app.py
-```
+Se tudo rodou sem erros, os modelos finais estarão disponíveis no banco, no schema configurado, como tabelas (`marts`) e views (`staging`).
 
 ---
 
-## 📚 Referências
+## 🔍 O que o pipeline faz
 
-_A ser preenchido com no mínimo 5 referências bibliográficas (pelo menos 3 de 2024 em diante), conforme exigido pelos critérios de avaliação do minicurso._
+- **`_sources.yml`** — declara as 7 tabelas de origem do sistema gerencial (`cultura`, `variedade`, `fazenda`, `talhao`, `safra`, `plantio`, `colheita`), já com testes de integridade.
+- **staging** — um modelo por fonte, renomeando e padronizando colunas.
+- **intermediate** — onde a regra de negócio acontece:
+  - `int_talhao`: separa o campo `codigo` de origem em `fazenda` e `talhao`.
+  - `int_plantio`: resolve a cultura via variedade, calcula datas de colheita planejada e define `status_cronograma` (`colhido` / `em_andamento`).
+  - `int_colheita`: converte a produtividade para a unidade padrão de cada cultura (sc/ha, @/ha, bu/ha, kg/ha) usando os macros `fator_conversao_kg` e `unidade_produtividade`.
+- **marts** — modelagem dimensional final: 6 dimensões (`dim_cultura`, `dim_fazenda`, `dim_safra`, `dim_variedade`, `dim_talhao`, `dim_plantio`, `dim_colheita`) e 2 fatos factless (`fact_cronograma`, `fact_produtividade`).
+
+---
+
+## 📚 Documentação oficial (referência)
+
+- dbt: https://docs.getdbt.com/docs/build/documentation
+- Supabase: https://supabase.com/docs
+- VS Code: https://code.visualstudio.com/docs
 
 ---
 
